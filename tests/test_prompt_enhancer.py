@@ -1,0 +1,52 @@
+from src.ai.prompt_enhancer import AIPromptEnhancer
+
+
+def test_prompt_enhancer_defaults_to_qwen2_7b():
+    enhancer = AIPromptEnhancer()
+
+    assert enhancer.model == "qwen2:7b"
+
+
+def test_enhance_uses_sentence_prompt_system_prompt_and_user_message(monkeypatch):
+    captured = {}
+
+    class FakeResponse:
+        text = '{"message": {"content": "A cute cat in a sunlit garden, soft lighting, balanced composition, photorealistic style, rich detail, 4K quality"}}'
+
+        def raise_for_status(self):
+            return None
+
+    def fake_post(url, json, timeout):
+        captured["payload"] = json
+        return FakeResponse()
+
+    monkeypatch.setattr("src.ai.prompt_enhancer.requests.post", fake_post)
+
+    result = AIPromptEnhancer().enhance("一只猫")
+
+    messages = captured["payload"]["messages"]
+    assert "AI绘画提示词生成器" in messages[0]["content"]
+    assert "输出一个完整的句子，而不是列表或标签" in messages[0]["content"]
+    assert "自然地包含主体、环境、光线、风格、画质等信息" in messages[0]["content"]
+    assert messages[1]["content"] == "将以下描述扩展成一个丰富的图像生成提示词：一只猫"
+    assert result.startswith("A cute cat")
+
+
+def test_clean_prompt_removes_dialog_wrapping():
+    raw = """
+    输出：
+    "A cute cat sitting on grass, soft natural light, detailed fur, high detail, 4K quality."
+    解释：这是优化后的提示词。
+    """
+
+    cleaned = AIPromptEnhancer._clean_prompt(raw)
+
+    assert cleaned == "A cute cat sitting on grass, soft natural light, detailed fur, high detail, 4K quality"
+
+
+def test_clean_prompt_handles_prefixed_single_line_output():
+    cleaned = AIPromptEnhancer._clean_prompt(
+        "Final prompt: A futuristic city at night, neon lights, cinematic composition, high detail"
+    )
+
+    assert cleaned == "A futuristic city at night, neon lights, cinematic composition, high detail"

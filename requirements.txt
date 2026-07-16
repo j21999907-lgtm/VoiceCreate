@@ -1,0 +1,29 @@
+# 基础工具与数据处理
+numpy>=1.24.0
+requests>=2.31.0        # HTTP requests for local Ollama API calls
+Pillow>=10.0.0          # 图片处理
+python-dotenv>=1.0.0    # 环境变量管理（可选）
+ollama>=0.3.0           # 本地 Ollama 提示词增强（可选）
+
+# 语音处理模块依赖
+vosk>=0.3.45            # 离线语音识别核心库
+pyaudio>=0.2.11         # 音频设备操作（麦克风录入）
+webrtcvad>=2.0.10       # 语音活动检测 (VAD)
+
+# 图片生成模块依赖 (示例：基于Stable Diffusion的Diffusers库)
+torch>=2.0.0            # PyTorch深度学习框架
+torchvision>=0.15.0     # Qwen3VL video/image processor dependency
+transformers>=4.40.0
+diffusers>=0.27.0       # Hugging Face的扩散模型库
+accelerate>=0.30.0      # 简化模型加载与运行
+
+# 结果显示模块依赖 (以Tkinter为例，它是Python标准库，无需额外安装)
+# 如果您计划使用其他GUI库，请替换下方内容
+# PyQt5>=5.15.0
+# PySide6>=6.5.0
+# 注意：Tkinter 通常随Python安装，无需在此列出
+
+# 开发与测试工具 (非运行时必需，但强烈推荐)
+pytest>=7.4.0
+black>=23.0.0           # 代码格式化
+flake8>=6.0.0           # 代码风格检查

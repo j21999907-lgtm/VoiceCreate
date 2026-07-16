@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+
+# Virtual environments
+venv/
+.venv/
+
+# Local secrets and machine config
+.env
+.idea/
+
+# Runtime outputs
+logs/
+temp/
+generated_images/
+
+# Model/runtime artifacts
+models/**/*.pyc
+models/**/__pycache__/

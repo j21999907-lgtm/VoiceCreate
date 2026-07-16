@@ -1,0 +1,195 @@
+# VoiceCreate 系统默认配置文件
+# 注意: YAML 文件使用缩进（空格）表示层级，冒号后必须有空格
+# 本文件定义了系统的所有可配置参数
+
+# =============== 1. 系统信息 ===============
+system:
+  # 系统基本信息
+  name: "VoiceCreate"      # 系统名称
+  version: "0.1.0"         # 版本号
+  debug_mode: true         # 调试模式: true-开启详细日志; false-生产模式
+  
+  # 运行控制
+  auto_start: true         # 启动后是否自动开始监听
+  max_runtime_hours: 24    # 最大运行时间(小时)，0表示无限制
+
+# =============== 2. 语音识别配置 ===============
+speech:
+  # VOSK模型配置
+  model_path: "./models/vosk"        # VOSK模型文件目录
+  sample_rate: 16000                 # 音频采样率(Hz)，必须与模型匹配
+  language: "zh-cn"                  # 识别语言: "zh-cn"(中文), "en-us"(英文)
+  timeout: 5.0                       # 录音超时时间(秒)
+  
+  # 语音活动检测(VAD)配置
+  vad:
+    enabled: true                    # 是否启用VAD
+    threshold: 0.5                   # 语音检测阈值(0.0-1.0)
+    min_silence_duration: 0.5        # 最小静音时长(秒)
+    min_speech_duration: 0.3         # 最小语音时长(秒)
+  
+  # 音频预处理
+  preprocess:
+    denoise: true                    # 是否降噪
+    normalize: true                  # 是否归一化音量
+    remove_silence: true             # 是否移除首尾静音
+
+# =============== 3. 图片生成配置 ===============
+iimage:
+  model_path: "./models/DreamLite-base"  # 注意：大小写敏感！
+  model_type: "base"
+  device: "cuda"  # 如果有GPU，否则用 "cpu"
+  default_size: 512
+  steps: 25
+  guidance_scale: 7.5
+  seed: null
+  negative_prompt: "模糊, 像素化, 低质量, 水印, 文字, 丑陋, 畸形, 失真"
+  enable_attention_slicing: false
+  enable_xformers_memory_efficient_attention: false
+  dtype: "float16"
+
+image:
+  model_path: "./models/DreamLite-base"
+  model_type: "base"
+  device: "cuda"
+  default_size: 512
+  width: 512
+  height: 512
+  steps: 35
+  guidance_scale: 7.5
+  seed: null
+  negative_prompt: "模糊, 像素化, 低质量, 水印, 文字, 丑陋, 畸形, 失真"
+  save_generated: true
+  save_path: "./generated_images"
+  save_metadata: true
+  max_saved_images: 100
+  filename_template: "{timestamp}_{id}_{prompt}.png"
+  max_filename_length: 100
+  auto_clean_old: true
+  keep_days: 30
+  enable_attention_slicing: false
+  enable_xformers_memory_efficient_attention: false
+  enable_upscale: false
+  dtype: "float16"
+
+# =============== 4. 显示配置 ===============
+ai_prompt_enhancer:
+  enabled: true
+  model: "qwen2:7b"
+  options:
+    temperature: 0.4
+
+display:
+  # 窗口配置
+  default_position: "center"         # 默认显示位置
+  window_size: [512, 512]            # 显示窗口尺寸[宽度, 高度]
+  background_color: [30, 30, 30]     # 窗口背景颜色[R, G, B]
+  window_style: "borderless"         # 窗口样式: "borderless"(无边框), "normal"(普通)
+  
+  # 窗口行为
+  always_on_top: true                # 窗口是否置顶
+  auto_close_minutes: 10             # 自动关闭时间(分钟)，0表示不自动关闭
+  opacity: 0.95                      # 窗口透明度(0.0-1.0)
+  
+  # 多屏幕支持
+  screen_index: 0                    # 使用的屏幕索引(0=主屏幕)
+  padding_ratio: 0.05                # 边距比例(0.0-0.5)
+  window:
+    borderless: true
+    always_on_top: true
+    margin: 20
+    close_button: true
+    esc_to_close: true
+    click_outside_to_close: true
+  validation:
+    check_size_match: true
+    auto_resize: true
+    min_width: 64
+    min_height: 64
+    max_width: 2048
+    max_height: 2048
+  position:
+    use_actual_size: true
+    ensure_in_screen: true
+    adjust_for_multiple_monitors: true
+
+# =============== 5. 存储配置 ===============
+storage:
+  # 路径配置
+  image_dir: "./generated_images"    # 生成图片保存目录
+  temp_dir: "./temp"                 # 临时文件目录
+  backup_dir: "./backups"            # 备份目录
+  
+  # 文件管理
+  image_format: "png"                # 图片保存格式: "png", "jpg", "webp"
+  max_images: 1000                   # 最大保存图片数量
+  auto_cleanup_days: 30              # 自动清理N天前的文件
+  enable_compression: false          # 是否启用图片压缩
+  
+  # 元数据
+  save_metadata: true                # 是否保存元数据
+  metadata_format: "json"            # 元数据格式: "json", "yaml"
+
+# =============== 6. 日志配置 ===============
+logging:
+  # 日志级别
+  level: "INFO"                      # 日志级别: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  console_level: "INFO"              # 控制台日志级别
+  
+  # 输出配置
+  path: "./logs"                     # 日志文件保存目录
+  max_files: 10                      # 最大日志文件数量
+  max_file_size_mb: 10               # 单个日志文件最大大小(MB)
+  
+  # 格式配置
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  date_format: "%Y-%m-%d %H:%M:%S"   # 时间格式
+  
+  # 特殊日志
+  enable_performance_log: false      # 是否启用性能日志
+  enable_access_log: true            # 是否启用访问日志
+
+# =============== 7. 任务与队列配置 ===============
+task:
+  # 队列配置
+  max_queue_size: 50                 # 最大任务队列长度
+  worker_threads: 2                  # 工作线程数
+  
+  # 任务超时
+  generation_timeout_seconds: 300    # 图片生成超时时间(秒)
+  recognition_timeout_seconds: 10    # 语音识别超时时间(秒)
+  
+  # 重试机制
+  max_retries: 3                     # 最大重试次数
+  retry_delay_seconds: 2             # 重试延迟(秒)
+
+# =============== 8. 热键配置 ===============
+hotkeys:
+  # 系统控制
+  toggle_listening: "Ctrl+Shift+L"   # 切换监听状态
+  pause_system: "Ctrl+Shift+P"       # 暂停系统
+  exit_system: "Ctrl+Shift+Q"        # 退出系统
+  
+  # 功能快捷键
+  regenerate_last: "Ctrl+R"          # 重新生成上一张图片
+  save_current: "Ctrl+S"             # 保存当前图片
+  clear_all: "Ctrl+Shift+C"          # 清除所有窗口
+
+# =============== 9. 高级配置 ===============
+advanced:
+  # 性能调优
+  audio_buffer_size: 1024            # 音频缓冲区大小
+  image_cache_size: 10               # 图片缓存数量
+  
+  # 网络配置(如需)
+  enable_network_features: false     # 是否启用网络功能
+  proxy_server: ""                   # 代理服务器地址
+  timeout_seconds: 30                # 网络超时时间
+  
+  # 实验性功能
+  experimental_features: false       # 是否启用实验性功能
+  enable_voice_feedback: true        # 是否启用语音反馈
+  
+  # 开发工具
+  enable_profiling: false            # 是否启用性能分析
+  enable_debug_endpoints: false      # 是否启用调试端点

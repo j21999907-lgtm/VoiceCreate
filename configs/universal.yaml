@@ -1,0 +1,37 @@
+voicecreate:
+  parser:
+    enable_pos_tagging: true
+    min_confidence: 0.3
+    max_instruction_length: 200
+
+  optimizer:
+    default_enhancement_level: balanced
+    enable_style_detection: true
+    enable_theme_detection: true
+    enable_mood_detection: true
+    seed: 42
+
+    enhancement_levels:
+      minimal:
+        quality_enhancements: 1
+        style_enhancements: 0
+        theme_enhancements: 0
+      balanced:
+        quality_enhancements: 2
+        style_enhancements: 1
+        theme_enhancements: 1
+      maximal:
+        quality_enhancements: 3
+        style_enhancements: 2
+        theme_enhancements: 2
+
+  workflow:
+    enable_position_resolver: true
+    enable_image_display: true
+    save_generated_images: true
+    save_path: ./generated_images
+
+  logging:
+    level: INFO
+    format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    file: ./logs/voicecreate.log
