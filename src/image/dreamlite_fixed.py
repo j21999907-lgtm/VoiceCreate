@@ -59,7 +59,7 @@ class DreamLiteModel:
     def __init__(self, config: Dict[str, Any]):
         self.config = config or {}
         self.model_path = self._resolve_model_path(
-            self.config.get("model_path", "./models/DreamLite-base")
+            self.config.get("model_path", "./models/sd-turbo")
         )
         self.device = self.config.get("device", "cpu")
         self.default_size = int(self.config.get("default_size", 768))
@@ -70,7 +70,7 @@ class DreamLiteModel:
             "模糊, 像素化, 低分辨率, 水印, 文字, 丑陋, 畸形, 失真, 多手指, 残缺, 不对称, 涂抹, 混乱背景, 裁剪不当",
         )
         self.dtype_name = self.config.get("dtype", "float32")
-        self.model_type = self.config.get("model_type", "DreamLite-base")
+        self.model_type = self.config.get("model_type", "sd-turbo")
         self.save_path = self._resolve_save_path(self.config.get("save_path") or self.config.get("image_dir") or "./generated_images")
         self.enable_save = bool(self.config.get("save_generated", True))
         self.save_metadata = bool(self.config.get("save_metadata", True))
@@ -87,6 +87,7 @@ class DreamLiteModel:
             logger.error("[DreamLite] Missing required model files: %s", self.missing_model_files)
             self.status = ModelStatus.ERROR
         self.is_mobile_pipeline = self._detect_mobile_model()
+        self.is_turbo_pipeline = self._detect_turbo_model()
         self._ensure_save_directory()
 
     def _resolve_model_path(self, raw_path: str) -> str:
@@ -150,6 +151,17 @@ class DreamLiteModel:
             return "mobile" in joined.lower() or "Mobile" in class_name
         except Exception:
             return False
+
+    def _detect_turbo_model(self) -> bool:
+        try:
+            model_index_path = Path(self.model_path) / "model_index.json"
+            data = json.loads(model_index_path.read_text(encoding="utf-8"))
+            identity = " ".join(
+                (str(self.model_type), Path(self.model_path).name, str(data.get("_name_or_path", "")))
+            ).lower()
+            return "turbo" in identity
+        except Exception:
+            return "turbo" in f"{self.model_type} {self.model_path}".lower()
 
     def _torch_dtype(self, torch_module: Any) -> Any:
         if self.device == "cuda" and self.dtype_name == "float16":
@@ -341,7 +353,7 @@ class DreamLiteModel:
         width = self._bounded_int(kwargs.get("width", self.default_size), 64, 1024)
         height = self._bounded_int(kwargs.get("height", self.default_size), 64, 1024)
         steps = self._bounded_int(kwargs.get("num_inference_steps", kwargs.get("steps", self.steps)), 1, 50)
-        if steps < 20:
+        if steps < 20 and not self.is_turbo_pipeline:
             steps = 20
             logger.info("Steps auto-adjusted to 20 for quality")
         guidance_scale = float(kwargs.get("guidance_scale", self.guidance_scale))

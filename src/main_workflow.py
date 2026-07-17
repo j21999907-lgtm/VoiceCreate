@@ -220,15 +220,21 @@ class VoiceCreateWorkflow:
         if generator is None:
             raise WorkflowError("图片生成器不可用", fallback="mock")
 
-        params = parsed.get("parameters", {}) if isinstance(parsed, dict) else {}
         options = self.context.generation_options or {}
         generator_default_size = int(getattr(generator, "default_size", 512) or 512)
         generator_steps = int(getattr(generator, "steps", 25) or 25)
-        width = int(options.get("width", params.get("width", generator_default_size)))
-        height = int(options.get("height", params.get("height", generator_default_size)))
-        steps = int(options.get("steps", params.get("steps", generator_steps)))
-        guidance_scale = float(options.get("guidance_scale", params.get("guidance_scale", 7.5)))
-        negative_prompt = options.get("negative_prompt", params.get("negative_prompt"))
+        generator_guidance = float(getattr(generator, "guidance_scale", 7.5))
+        generator_negative_prompt = getattr(generator, "negative_prompt", None)
+
+        # Parser parameters describe a generic high-quality preset; they are not
+        # user-selected generation settings.  Using them as runtime defaults turns
+        # SD-Turbo's 1-4 step inference into a 35-step job and makes generation
+        # appear to hang.  Explicit UI/API options still take precedence.
+        width = int(options.get("width", generator_default_size))
+        height = int(options.get("height", generator_default_size))
+        steps = int(options.get("steps", generator_steps))
+        guidance_scale = float(options.get("guidance_scale", generator_guidance))
+        negative_prompt = options.get("negative_prompt", generator_negative_prompt)
         logger.info("[Workflow] Sending prompt to image generator:")
         logger.debug(f"  prompt: {prompt}")
         logger.debug(f"  negative_prompt: {negative_prompt}")

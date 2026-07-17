@@ -57,9 +57,9 @@ class VoiceCreateApp:
         self.input_mode_var = StringVar(value="voice")
         self.syntax_var = StringVar(value="Keyboard input ready")
         self.history_var = StringVar(value="")
-        self.steps_var = IntVar(value=35)
+        self.steps_var = IntVar(value=4)
         self.quality_mode = StringVar(value="high")
-        self.steps_label_var = StringVar(value="35 steps")
+        self.steps_label_var = StringVar(value="4 steps")
 
         self.is_recording = False
         self.worker_running = False
@@ -233,7 +233,7 @@ class VoiceCreateApp:
 
         steps_slider = ttk.Scale(
             quality_frame,
-            from_=4,
+            from_=1,
             to=50,
             variable=self.steps_var,
             orient="horizontal",
@@ -264,9 +264,9 @@ class VoiceCreateApp:
 
     def update_quality_settings(self) -> None:
         if self.quality_mode.get() == "fast":
-            self.steps_var.set(8)
+            self.steps_var.set(1)
         else:
-            self.steps_var.set(35)
+            self.steps_var.set(4)
         self.update_steps_label()
 
     def _generation_options(self) -> Dict[str, Any]:
@@ -278,7 +278,7 @@ class VoiceCreateApp:
             "steps": steps,
             "width": int(image_config.get("width", default_size)) if isinstance(image_config, dict) else default_size,
             "height": int(image_config.get("height", default_size)) if isinstance(image_config, dict) else default_size,
-            "guidance_scale": 7.5 if self.quality_mode.get() == "high" else 5.0,
+            "guidance_scale": float(image_config.get("guidance_scale", 7.5)) if isinstance(image_config, dict) else 7.5,
             "negative_prompt": "模糊, 像素化, 低质量, 水印, 文字, 丑陋, 畸形, 失真",
             "quality_mode": self.quality_mode.get(),
             "ai_prompt_enhancer": ai_prompt_enhancer,
@@ -307,7 +307,7 @@ class VoiceCreateApp:
             if vosk_model is not None:
                 self.global_state["modules"]["speech_recognizer"] = vosk_model
 
-            self._queue_status("Loading DreamLite image model...", 50)
+            self._queue_status("Loading image model...", 50)
             image_config = self.config.get("image") or self.config.get("iimage") or {}
             self.image_generator = initialize_dreamlite_model(image_config)
             if self.image_generator is not None:

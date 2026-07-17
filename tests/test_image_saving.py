@@ -26,7 +26,8 @@ def test_dreamlite_generate_saves_image_and_metadata(tmp_path):
             "max_saved_images": 10,
         }
     )
-    assert model.load()
+    # This test exercises saving, while production loading intentionally fails fast.
+    assert model._load_mock()
 
     result = model.generate("测试图片 保存功能", width=128, height=128, steps=1)
 

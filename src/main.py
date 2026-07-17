@@ -63,18 +63,19 @@ def _load_image_model(config: dict, global_state: dict, logger) -> None:
 
     # The current config file uses "iimage"; support the corrected "image" key too.
     image_config = config.get("image") or config.get("iimage") or {}
-    dreamlite_model = initialize_dreamlite_model(image_config)
-    if dreamlite_model is None:
-        logger.warning("DreamLite image generator failed to load")
-        logger.info("[WARN] DreamLite image generator failed to load")
+    image_model = initialize_dreamlite_model(image_config)
+    if image_model is None:
+        logger.warning("Image generator failed to load")
+        logger.info("[WARN] Image generator failed to load")
         return
 
-    register_model_to_global_state(global_state, dreamlite_model)
-    logger.info("DreamLite image generator loaded")
-    logger.info("[OK] DreamLite image generator loaded")
-    if getattr(dreamlite_model, "using_mock", False):
-        logger.warning("DreamLite is running in mock fallback mode")
-        logger.info("[WARN] DreamLite is running in mock fallback mode")
+    register_model_to_global_state(global_state, image_model)
+    model_name = image_config.get("model_type", "image")
+    logger.info("%s image generator loaded", model_name)
+    logger.info("[OK] %s image generator loaded", model_name)
+    if getattr(image_model, "using_mock", False):
+        logger.warning("%s is running in mock fallback mode", model_name)
+        logger.info("[WARN] %s is running in mock fallback mode", model_name)
 
 
 def _register_display_module(config: dict, global_state: dict, logger) -> None:
