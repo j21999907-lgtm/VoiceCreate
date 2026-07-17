@@ -36,7 +36,7 @@ speech:
 
 # =============== 3. 图片生成配置 ===============
 iimage:
-  model_path: "./models/sd-turbo"
+  model_path: "D:/VoiceCreate/models/sd-turbo"
   model_type: "sd-turbo"
   device: "cuda"  # 如果有GPU，否则用 "cpu"
   default_size: 512
@@ -49,7 +49,7 @@ iimage:
   dtype: "float16"
 
 image:
-  model_path: "./models/sd-turbo"
+  model_path: "D:/VoiceCreate/models/sd-turbo"
   model_type: "sd-turbo"
   device: "cuda"
   default_size: 512
@@ -75,7 +75,7 @@ image:
 # =============== 4. 显示配置 ===============
 ai_prompt_enhancer:
   enabled: true
-  model: "qwen2:7b"
+  model: "qwen2.5:7b"
   options:
     temperature: 0.4
 

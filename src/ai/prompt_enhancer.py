@@ -20,7 +20,7 @@ class AIPromptEnhancer:
 
     def __init__(
         self,
-        model: str = "qwen2:7b",
+        model: str = "qwen2.5:7b",
         *,
         system_prompt: Optional[str] = None,
         options: Optional[Dict[str, Any]] = None,
@@ -93,6 +93,10 @@ class AIPromptEnhancer:
                     status_code,
                     exc,
                 )
+                # A refused local connection means Ollama is not running. Retrying
+                # the same endpoint only delays the model's built-in prompt path.
+                if isinstance(exc, requests.ConnectionError):
+                    break
                 if attempt < max_attempts:
                     time.sleep(1)
 

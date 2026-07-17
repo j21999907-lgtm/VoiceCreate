@@ -61,16 +61,17 @@ class DreamLiteModel:
         self.model_path = self._resolve_model_path(
             self.config.get("model_path", "./models/sd-turbo")
         )
+        self.model_type = str(self.config.get("model_type", "sd-turbo"))
+        turbo_defaults = "turbo" in f"{self.model_type} {self.model_path}".lower()
         self.device = self.config.get("device", "cpu")
-        self.default_size = int(self.config.get("default_size", 768))
-        self.steps = int(self.config.get("steps", 30))
-        self.guidance_scale = float(self.config.get("guidance_scale", 7.5))
+        self.default_size = int(self.config.get("default_size", 512 if turbo_defaults else 768))
+        self.steps = int(self.config.get("steps", 4 if turbo_defaults else 30))
+        self.guidance_scale = float(self.config.get("guidance_scale", 0.0 if turbo_defaults else 7.5))
         self.negative_prompt = self.config.get(
             "negative_prompt",
             "模糊, 像素化, 低分辨率, 水印, 文字, 丑陋, 畸形, 失真, 多手指, 残缺, 不对称, 涂抹, 混乱背景, 裁剪不当",
         )
         self.dtype_name = self.config.get("dtype", "float32")
-        self.model_type = self.config.get("model_type", "sd-turbo")
         self.save_path = self._resolve_save_path(self.config.get("save_path") or self.config.get("image_dir") or "./generated_images")
         self.enable_save = bool(self.config.get("save_generated", True))
         self.save_metadata = bool(self.config.get("save_metadata", True))

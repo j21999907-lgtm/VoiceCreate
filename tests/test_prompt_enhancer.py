@@ -1,10 +1,10 @@
 from src.ai.prompt_enhancer import AIPromptEnhancer
 
 
-def test_prompt_enhancer_defaults_to_qwen2_7b():
+def test_prompt_enhancer_defaults_to_qwen2_5_7b():
     enhancer = AIPromptEnhancer()
 
-    assert enhancer.model == "qwen2:7b"
+    assert enhancer.model == "qwen2.5:7b"
 
 
 def test_enhance_uses_sentence_prompt_system_prompt_and_user_message(monkeypatch):
@@ -25,6 +25,7 @@ def test_enhance_uses_sentence_prompt_system_prompt_and_user_message(monkeypatch
     result = AIPromptEnhancer().enhance("一只猫")
 
     messages = captured["payload"]["messages"]
+    assert captured["payload"]["model"] == "qwen2.5:7b"
     assert "AI绘画提示词生成器" in messages[0]["content"]
     assert "输出一个完整的句子，而不是列表或标签" in messages[0]["content"]
     assert "自然地包含主体、环境、光线、风格、画质等信息" in messages[0]["content"]
@@ -50,3 +51,21 @@ def test_clean_prompt_handles_prefixed_single_line_output():
     )
 
     assert cleaned == "A futuristic city at night, neon lights, cinematic composition, high detail"
+
+
+def test_connection_refused_falls_back_without_retrying(monkeypatch):
+    calls = 0
+
+    def refused(*_args, **_kwargs):
+        nonlocal calls
+        calls += 1
+        raise AIPromptEnhancerConnectionError("Ollama is not running")
+
+    from requests import ConnectionError as AIPromptEnhancerConnectionError
+
+    monkeypatch.setattr("src.ai.prompt_enhancer.requests.post", refused)
+
+    result = AIPromptEnhancer().enhance("a cat")
+
+    assert calls == 1
+    assert result.startswith("a cat")

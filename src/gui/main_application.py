@@ -63,6 +63,7 @@ class VoiceCreateApp:
 
         self.is_recording = False
         self.worker_running = False
+        self.modules_ready = False
         self.wave_phase = 0.0
         self.ui_queue: "queue.Queue[Tuple[str, Any]]" = queue.Queue()
 
@@ -430,6 +431,7 @@ class VoiceCreateApp:
             percent = int((step / max(1, total)) * 100)
             self._set_progress(percent, f"Generating image: step {step}/{total}")
         elif event == "ready":
+            self.modules_ready = True
             self._set_status("Ready")
             self._apply_input_mode()
         elif event == "text":
@@ -506,9 +508,11 @@ class VoiceCreateApp:
 
     def _apply_input_mode(self) -> None:
         mode = self.input_mode_var.get()
-        if self.worker_running:
+        if self.worker_running or not self.modules_ready:
             self.record_button.state(["disabled"])
             self.submit_button.state(["disabled"])
+            if not self.modules_ready:
+                self._set_status("Loading image model...")
             return
         if mode == "voice":
             self.mode_button.configure(text="Mode: Voice")
