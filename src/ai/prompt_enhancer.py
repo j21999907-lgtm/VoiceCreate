@@ -7,7 +7,7 @@ import logging
 import os
 import re
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterable, Optional
 
 import requests
 
@@ -27,34 +27,34 @@ class AIPromptEnhancer:
     ) -> None:
         self.model = model
         self.system_prompt = system_prompt or (
-            "你是专业的文生图提示词导演。任务是把用户的简短中文描述改写成一条英文图像生成提示词。"
-            "必须保留用户明确说出的主体、动作、风格、位置、数量和场景；不得询问更多信息，不得拒绝，不得解释。"
-            "当用户描述很短时，合理补全环境、构图、镜头、光线、材质、细节和画质词。"
-            "输出必须是一行英文 prompt，40 到 90 个英文词，逗号分隔短语。"
+            "你是专业的文生图提示词编辑器。将中文描述改写成一行英文图像生成提示词。"
+            "必须逐项保留主体、属性、穿戴、动作、关系、数量、场景和风格，不得省略、合并或改变含义。"
+            "必须保留关键词列表中的每一项，并把它们自然地翻译到英文提示词中。"
+            "可以补充构图、镜头、光线和画质，但补充内容不能与关键词冲突。"
+            "输出 40 到 90 个英文单词，使用逗号分隔短语。"
             "不要输出标题、编号、JSON、Markdown、中文、引号或负面提示词。"
         )
         self.options = options or {"temperature": 0.4}
         self.api_url = "http://127.0.0.1:11434/api/chat"
 
-    def enhance(self, prompt: str) -> str:
+    def enhance(self, prompt: str, required_keywords: Optional[Iterable[str]] = None) -> str:
         source_prompt = str(prompt or "").strip()
         if not source_prompt:
             return source_prompt
 
         max_attempts = 3
-        system_content = (
-            "你是一个AI绘画提示词生成器。请将用户的中文描述转化为一段自然流畅的英文图像生成提示词。要求：\n"
-            "- 输出一个完整的句子，而不是列表或标签。\n"
-            "- 自然地包含主体、环境、光线、风格、画质等信息。\n"
-            "- 使用英文，长度在40-80词之间。\n"
-            "- 只输出提示词本身，不要任何解释、格式标记或标点之外的符号。\n"
-            "- 如果用户描述很简单，请合理增加细节（如颜色、材质、氛围）。"
+        keywords = list(dict.fromkeys(str(item).strip() for item in (required_keywords or []) if str(item).strip()))
+        keyword_text = " | ".join(keywords) if keywords else source_prompt
+        user_content = (
+            f"原始提示词：{source_prompt}\n"
+            f"必须逐项保留的关键词：{keyword_text}\n"
+            "只输出一行英文提示词，并确保上述关键词对应的含义全部出现。"
         )
         payload = {
             "model": self.model,
             "messages": [
-                {"role": "system", "content": system_content},
-                {"role": "user", "content": "将以下描述扩展成一个丰富的图像生成提示词：" + source_prompt},
+                {"role": "system", "content": self.system_prompt},
+                {"role": "user", "content": user_content},
             ],
             "stream": False,
             "options": self.options,

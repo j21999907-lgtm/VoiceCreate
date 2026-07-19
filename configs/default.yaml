@@ -35,21 +35,8 @@ speech:
     remove_silence: true             # 是否移除首尾静音
 
 # =============== 3. 图片生成配置 ===============
-iimage:
-  model_path: "D:/VoiceCreate/models/sd-turbo"
-  model_type: "sd-turbo"
-  device: "cuda"  # 如果有GPU，否则用 "cpu"
-  default_size: 512
-  steps: 4
-  guidance_scale: 0.0
-  seed: null
-  negative_prompt: "模糊, 像素化, 低质量, 水印, 文字, 丑陋, 畸形, 失真"
-  enable_attention_slicing: false
-  enable_xformers_memory_efficient_attention: false
-  dtype: "float16"
-
 image:
-  model_path: "D:/VoiceCreate/models/sd-turbo"
+  model_path: "./models/sd-turbo"
   model_type: "sd-turbo"
   device: "cuda"
   default_size: 512

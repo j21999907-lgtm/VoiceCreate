@@ -22,14 +22,14 @@ def test_enhance_uses_sentence_prompt_system_prompt_and_user_message(monkeypatch
 
     monkeypatch.setattr("src.ai.prompt_enhancer.requests.post", fake_post)
 
-    result = AIPromptEnhancer().enhance("一只猫")
+    result = AIPromptEnhancer().enhance("猫，戴眼镜，水彩风格", required_keywords=["猫", "戴眼镜", "水彩"])
 
     messages = captured["payload"]["messages"]
     assert captured["payload"]["model"] == "qwen2.5:7b"
-    assert "AI绘画提示词生成器" in messages[0]["content"]
-    assert "输出一个完整的句子，而不是列表或标签" in messages[0]["content"]
-    assert "自然地包含主体、环境、光线、风格、画质等信息" in messages[0]["content"]
-    assert messages[1]["content"] == "将以下描述扩展成一个丰富的图像生成提示词：一只猫"
+    assert "不得省略、合并或改变含义" in messages[0]["content"]
+    assert "必须保留关键词列表中的每一项" in messages[0]["content"]
+    assert "原始提示词：猫，戴眼镜，水彩风格" in messages[1]["content"]
+    assert "必须逐项保留的关键词：猫 | 戴眼镜 | 水彩" in messages[1]["content"]
     assert result.startswith("A cute cat")
 
 

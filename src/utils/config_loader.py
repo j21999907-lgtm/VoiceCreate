@@ -14,7 +14,7 @@ logger = logging.getLogger("VoiceCreate")
 """
 
 import os
-import sys
+from pathlib import Path
 import yaml
 from typing import Dict, Any
 from dotenv import load_dotenv
@@ -22,6 +22,36 @@ from dotenv import load_dotenv
 # 获取项目根目录的绝对路径
 # __file__ 是当前文件路径, .parent 是上一级 (src/utils), .parent.parent 是上上一级 (src), .parent 是根目录 (VoiceCreate)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+def _project_path(value: Any) -> str:
+    """Resolve a configured project path without depending on the current directory."""
+    path = Path(str(value)).expanduser()
+    if not path.is_absolute():
+        path = Path(BASE_DIR) / path
+    return str(path.resolve())
+
+
+def _normalize_paths(config: Dict[str, Any]) -> Dict[str, Any]:
+    legacy_image = config.pop("iimage", None)
+    if "image" not in config and isinstance(legacy_image, dict):
+        logger.warning("配置项 'iimage' 已弃用，请改用 'image'")
+        config["image"] = legacy_image
+
+    path_fields = {
+        "speech": ("model_path",),
+        "image": ("model_path", "save_path"),
+        "storage": ("image_dir", "temp_dir", "backup_dir"),
+        "logging": ("path",),
+    }
+    for section, fields in path_fields.items():
+        values = config.get(section)
+        if not isinstance(values, dict):
+            continue
+        for field in fields:
+            if values.get(field):
+                values[field] = _project_path(values[field])
+    return config
 
 
 def load_system_config(config_file: str = "configs/default.yaml") -> Dict[str, Any]:
@@ -51,7 +81,7 @@ def load_system_config(config_file: str = "configs/default.yaml") -> Dict[str, A
             config = {}
 
         logger.info(f"[INFO] 配置文件加载成功: {full_path}")
-        return config
+        return _normalize_paths(config)
 
     except yaml.YAMLError as e:
         logger.info(f"[ERROR] 配置文件格式错误: {e}")

@@ -53,6 +53,7 @@ class WorkflowContext:
     display_time: int = 5000
     generation_options: Dict[str, Any] = None
     progress_callback: Any = None
+    status_callback: Any = None
 
 
 def validate_audio(audio: Optional[bytes], min_bytes: int = 1600) -> bool:
@@ -130,6 +131,7 @@ def process_user_input(
     display_time: int = 5000,
     generation_options: Optional[Dict[str, Any]] = None,
     progress_callback: Any = None,
+    status_callback: Any = None,
 ) -> Dict[str, Any]:
     """Process voice or keyboard input and run the full generation workflow."""
     context = WorkflowContext(
@@ -139,6 +141,7 @@ def process_user_input(
         display_time=display_time,
         generation_options=generation_options or {},
         progress_callback=progress_callback,
+        status_callback=status_callback,
     )
     processor = VoiceCreateWorkflow(context)
     return processor.process(input_method, input_data)
@@ -149,6 +152,15 @@ class VoiceCreateWorkflow:
 
     def __init__(self, context: WorkflowContext) -> None:
         self.context = context
+
+    def _notify(self, stage: str, **details: Any) -> None:
+        callback = self.context.status_callback
+        if callback is None:
+            return
+        try:
+            callback(stage, details)
+        except Exception:
+            logger.debug("Workflow status callback failed", exc_info=True)
 
     def process(self, input_method: str, input_data: Any = None) -> Dict[str, Any]:
         try:
@@ -235,6 +247,7 @@ class VoiceCreateWorkflow:
         steps = int(options.get("steps", generator_steps))
         guidance_scale = float(options.get("guidance_scale", generator_guidance))
         negative_prompt = options.get("negative_prompt", generator_negative_prompt)
+        self._notify("generating", width=width, height=height, steps=steps)
         logger.info("[Workflow] Sending prompt to image generator:")
         logger.debug(f"  prompt: {prompt}")
         logger.debug(f"  negative_prompt: {negative_prompt}")
@@ -307,6 +320,7 @@ class VoiceCreateWorkflow:
         from parser.command_parser import parse_command_text
         from speech.command_extractor import extract_command_from_text
 
+        self._notify("analyzing", input_method=input_method)
         command = extract_command_from_text(text)
         if not validate_command(command):
             raise WorkflowError("指令无效", fallback="keyboard")
@@ -316,8 +330,19 @@ class VoiceCreateWorkflow:
         if not position:
             position = "中心"
 
+        self._notify(
+            "parsed",
+            subject=command.get("subject") or command.get("object") or "",
+            style=command.get("style") or "",
+            position=position,
+        )
+
         prompt = self._build_prompt(text, command, parsed)
-        prompt = self._maybe_enhance_prompt(prompt)
+        enhancer_enabled = bool(self._ai_prompt_enhancer_config().get("enabled", False))
+        if enhancer_enabled:
+            self._notify("enhancing")
+        prompt = self._maybe_enhance_prompt(prompt, command.get("keywords", []))
+        self._notify("prompt_ready", prompt=prompt, enhanced=enhancer_enabled)
         result = self.generate_image(prompt, parsed)
         image = self._result_image(result)
         if image is None:
@@ -335,6 +360,7 @@ class VoiceCreateWorkflow:
             if save_path:
                 logger.info(f"[Workflow] Image saved to: {save_path}")
                 logging.getLogger("VoiceCreateGUI").info("Image saved to: %s", save_path)
+                self._notify("saved", path=save_path)
             parsed_position = parsed.get("position")
             if isinstance(parsed_position, dict):
                 parsed_position["coordinates"] = coords
@@ -365,6 +391,7 @@ class VoiceCreateWorkflow:
                 }
             )
 
+        self._notify("complete", position=position, coordinates=coords)
         return {
             "success": True,
             "input_method": input_method,
@@ -396,7 +423,7 @@ class VoiceCreateWorkflow:
             return "，".join(str(item) for item in keywords)
         return text
 
-    def _maybe_enhance_prompt(self, prompt: str) -> str:
+    def _maybe_enhance_prompt(self, prompt: str, required_keywords: Optional[list[str]] = None) -> str:
         enhancer_config = self._ai_prompt_enhancer_config()
         if not enhancer_config.get("enabled", False):
             return prompt
@@ -409,7 +436,7 @@ class VoiceCreateWorkflow:
                 system_prompt=enhancer_config.get("system_prompt"),
                 options=enhancer_config.get("options"),
             )
-            enhanced = enhancer.enhance(prompt)
+            enhanced = enhancer.enhance(prompt, required_keywords=required_keywords)
             if enhanced != prompt:
                 logger.info("[Workflow] AI prompt enhancer applied.")
             return enhanced

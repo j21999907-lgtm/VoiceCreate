@@ -30,3 +30,20 @@ def test_single_character_action_is_preserved_when_meaningful():
     assert result["categorized"]["animals"] == ["熊猫"]
     assert "吃" in result["categorized"]["actions"]
     assert "正在吃" in result["enhanced_prompt"]
+
+
+def test_free_form_wearable_attribute_is_preserved():
+    result = extract_command_from_text("在左上角生成一只戴眼镜的猫，水彩风格")
+
+    assert result["keywords"] == ["戴眼镜", "猫", "水彩"]
+    assert "戴眼镜" in result["enhanced_prompt"]
+    assert "猫" in result["enhanced_prompt"]
+    assert "水彩风格" in result["enhanced_prompt"]
+
+
+def test_unlisted_descriptive_phrases_are_not_discarded():
+    result = extract_command_from_text("生成一个穿红色西装、拿着雨伞的人")
+
+    assert "穿红色西装" in result["keywords"]
+    assert "拿着雨伞" in result["keywords"]
+    assert all(keyword in result["enhanced_prompt"] for keyword in ("穿红色西装", "拿着雨伞"))

@@ -8,13 +8,13 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from image.dreamlite_fixed import DreamLiteModel
+from image.generator import DiffusersImageModel
 from utils.image_manager import ImageManager
 
 
 def test_dreamlite_generate_saves_image_and_metadata(tmp_path):
     save_dir = tmp_path / "generated_images"
-    model = DreamLiteModel(
+    model = DiffusersImageModel(
         {
             "model_path": str(tmp_path / "missing_model"),
             "device": "cpu",

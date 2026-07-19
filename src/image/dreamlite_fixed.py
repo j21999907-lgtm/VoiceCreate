@@ -1,10 +1,7 @@
-"""
-Fixed DreamLite loader for VoiceCreate.
+"""Local Diffusers image model loader used by VoiceCreate.
 
-This module keeps the existing image/model_loader.py intact and provides a
-clean loader for the custom DreamLitePipeline declared by model_index.json.
-It always loads from local files and enables trust_remote_code for the local
-DreamLite pipeline implementation.
+The primary model is SD-Turbo. The bundled DreamLite custom pipeline remains
+available as a compatibility fallback when its model metadata requests it.
 """
 
 from __future__ import annotations
@@ -12,6 +9,20 @@ from __future__ import annotations
 import logging
 
 logger = logging.getLogger("VoiceCreate")
+
+
+class _ModelLogFilter(logging.Filter):
+    """Replace legacy model labels in records emitted by this module."""
+
+    def __init__(self, model_label: str):
+        super().__init__()
+        self.model_label = model_label
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.msg, str):
+            record.msg = record.msg.replace("[DreamLite]", f"[{self.model_label}]")
+            record.msg = record.msg.replace("DreamLite model", f"{self.model_label} model")
+        return True
 
 
 import os
@@ -53,8 +64,8 @@ class GenerationResult:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
-class DreamLiteModel:
-    """DreamLite model wrapper that supports the custom DreamLitePipeline."""
+class DiffusersImageModel:
+    """Wrapper for local Diffusers pipelines, including SD-Turbo."""
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config or {}
@@ -62,6 +73,8 @@ class DreamLiteModel:
             self.config.get("model_path", "./models/sd-turbo")
         )
         self.model_type = str(self.config.get("model_type", "sd-turbo"))
+        self.model_label = self.model_type or "image-model"
+        self._configure_log_label()
         turbo_defaults = "turbo" in f"{self.model_type} {self.model_path}".lower()
         self.device = self.config.get("device", "cpu")
         self.default_size = int(self.config.get("default_size", 512 if turbo_defaults else 768))
@@ -84,12 +97,18 @@ class DreamLiteModel:
         self.using_mock = False
         self.missing_model_files = self._validate_model_files()
         if self.missing_model_files:
-            self.last_error = f"Missing DreamLite model files: {', '.join(self.missing_model_files)}"
+            self.last_error = f"Missing {self.model_label} model files: {', '.join(self.missing_model_files)}"
             logger.error("[DreamLite] Missing required model files: %s", self.missing_model_files)
             self.status = ModelStatus.ERROR
         self.is_mobile_pipeline = self._detect_mobile_model()
         self.is_turbo_pipeline = self._detect_turbo_model()
         self._ensure_save_directory()
+
+    def _configure_log_label(self) -> None:
+        for current_filter in tuple(logger.filters):
+            if isinstance(current_filter, _ModelLogFilter):
+                logger.removeFilter(current_filter)
+        logger.addFilter(_ModelLogFilter(self.model_label))
 
     def _resolve_model_path(self, raw_path: str) -> str:
         path = Path(raw_path)
@@ -113,9 +132,8 @@ class DreamLiteModel:
         if not self.enable_save or not self.save_path:
             return
         Path(self.save_path).mkdir(parents=True, exist_ok=True)
-        message = f"[DreamLite] Image save directory: {Path(self.save_path).resolve()}"
+        message = f"[{self.model_label}] Image save directory: {Path(self.save_path).resolve()}"
         logger.info(message)
-        logging.getLogger("VoiceCreate").info(message)
         logging.getLogger("VoiceCreateGUI").info(message)
 
     def _validate_model_files(self) -> list[str]:
@@ -183,13 +201,13 @@ class DreamLiteModel:
     def load(self) -> bool:
         """Load DreamLite with trust_remote_code=True and local files only."""
         logger.info("=" * 60)
-        logger.info("[DreamLite] Loading fixed DreamLite model")
+        logger.info("[%s] Loading local Diffusers model", self.model_label)
         logger.info(f"[DreamLite] Model path: {self.model_path}")
         self.status = ModelStatus.LOADING
 
         self.missing_model_files = self._validate_model_files()
         if self.missing_model_files:
-            self.last_error = f"Missing DreamLite model files: {', '.join(self.missing_model_files)}"
+            self.last_error = f"Missing {self.model_label} model files: {', '.join(self.missing_model_files)}"
             logger.error("[DreamLite] Missing required model files: %s", self.missing_model_files)
             # Mock fallback disabled: fail fast when the real model cannot load.
             # return self._warn_and_load_mock()
@@ -795,14 +813,15 @@ class DreamLiteModel:
         return result.image
 
 
-def initialize_dreamlite_model(model_config: Dict[str, Any]) -> Optional[DreamLiteModel]:
-    model = DreamLiteModel(model_config)
+def initialize_image_model(model_config: Dict[str, Any]) -> Optional[DiffusersImageModel]:
+    """Load the configured local Diffusers image model."""
+    model = DiffusersImageModel(model_config)
     if model.load():
         return model
     return None
 
 
-def register_model_to_global_state(global_state: Dict[str, Any], model_obj: DreamLiteModel) -> None:
+def register_model_to_global_state(global_state: Dict[str, Any], model_obj: DiffusersImageModel) -> None:
     if not global_state or "modules" not in global_state:
         return
 
@@ -812,7 +831,12 @@ def register_model_to_global_state(global_state: Dict[str, Any], model_obj: Drea
             global_state["modules"]["image_generator"] = model_obj
     else:
         global_state["modules"]["image_generator"] = model_obj
-    logger.info("[DreamLite] Image generator registered in global state.")
+    logger.info("[%s] Image generator registered in global state.", model_obj.model_type)
+
+
+# Backward-compatible imports for integrations that used the old model-specific API.
+DreamLiteModel = DiffusersImageModel
+initialize_dreamlite_model = initialize_image_model
 
 
 def test_fixed_dreamlite() -> bool:
@@ -826,7 +850,7 @@ def test_fixed_dreamlite() -> bool:
         "dtype": "float32",
     }
 
-    model = DreamLiteModel(config)
+    model = DiffusersImageModel(config)
     assert model.load() is True, "Model should load or fall back to mock mode."
 
     result = model.generate("a cat", width=128, height=128, steps=2)

@@ -131,10 +131,10 @@ class UnifiedVoiceCreateWorkflow:
         }
 
     def _init_image_generator(self) -> Any:
-        from image.dreamlite_fixed import DreamLiteModel
+        from image.generator import DiffusersImageModel
 
         image_config = self.config.get("image") or self.config.get("iimage") or {}
-        model = DreamLiteModel(image_config)
+        model = DiffusersImageModel(image_config)
         model.load()
         self.image_generator = model
         logger.info("图片生成器初始化完成")

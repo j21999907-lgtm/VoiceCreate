@@ -35,6 +35,7 @@ ACTION_WORDS = ["生成", "显示", "创建", "画", "绘制", "制作", "做", 
 PUNCTUATION_RE = re.compile(r"[\s,，。.!！?？;；:：、\"'“”‘’（）()【】\[\]{}]+")
 SINGLE_CHAR_KEEP = set("红黄蓝绿黑白金银猫狗鸟鱼花树山水海车人吃跑飞跳")
 QUALITY_TERMS = ["高清", "4K", "细节丰富", "专业摄影", "精美", "细腻"]
+DESCRIPTIVE_PREFIXES = ("戴", "穿", "拿", "抱", "背", "举", "撑", "骑", "趴", "站", "坐", "躺", "看", "望", "吃", "喝", "追", "拉", "推")
 
 
 class CommandExtractor:
@@ -131,7 +132,7 @@ class CommandExtractor:
         if not working:
             return []
 
-        words = self._segment_words(working)
+        words = [*self._extract_descriptive_phrases(working), *self._segment_words(working)]
         keywords: List[str] = []
         for word in words:
             cleaned = self._clean_keyword(word)
@@ -144,6 +145,15 @@ class CommandExtractor:
             if cleaned not in keywords:
                 keywords.append(cleaned)
         return self._remove_embedded_keywords(keywords)
+
+    @staticmethod
+    def _extract_descriptive_phrases(text: str) -> List[str]:
+        """Preserve free-form verb phrases such as '戴眼镜' and '拿着雨伞'."""
+        pattern = re.compile(
+            r"(?:戴|穿|拿|抱|背|举|撑|骑|趴|站|坐|躺|看|望|吃|喝|追|拉|推)(?:着|在)?"
+            r"[^\s,，。；;]+?(?=的|[\s,，。；;]|$)"
+        )
+        return list(dict.fromkeys(match.group(0).strip() for match in pattern.finditer(text)))
 
     def _strip_command_noise(self, text: str) -> str:
         working = text
@@ -174,7 +184,14 @@ class CommandExtractor:
             for other_index, other in enumerate(keywords):
                 if index == other_index or len(other) <= len(keyword) or keyword not in other:
                     continue
-                if len(keyword) == 1 or other.endswith("风格"):
+                descriptive_fragment = (
+                    other.startswith(DESCRIPTIVE_PREFIXES)
+                    and not self.classifier.classify_word(keyword, self.dictionary)
+                )
+                if len(keyword) == 1 and not self.classifier.classify_word(keyword, self.dictionary):
+                    should_drop = True
+                    break
+                if other.endswith("风格") or descriptive_fragment:
                     should_drop = True
                     break
             if should_drop:
@@ -183,7 +200,7 @@ class CommandExtractor:
         return filtered
 
     def _dictionary_longest_match(self, text: str) -> List[str]:
-        words: List[str] = []
+        words: List[tuple[int, str]] = []
         consumed = [False] * len(text)
         for term in self.dictionary_terms:
             start = text.find(term)
@@ -195,10 +212,35 @@ class CommandExtractor:
                         consumed[index] = True
                 start = text.find(term, start + 1)
 
-        if not words:
-            return [part for part in PUNCTUATION_RE.split(text) if part]
+        residuals: List[tuple[int, str]] = []
+        start = None
+        for index, is_consumed in enumerate([*consumed, True]):
+            if not is_consumed and start is None:
+                start = index
+            elif is_consumed and start is not None:
+                raw_fragment = text[start:index]
+                for part in PUNCTUATION_RE.split(raw_fragment):
+                    cleaned = self._clean_residual_phrase(part)
+                    if cleaned:
+                        offset = raw_fragment.find(part)
+                        residuals.append((start + max(0, offset), cleaned))
+                start = None
 
-        return [term for _, term in sorted(words, key=lambda item: item[0])]
+        combined = [*words, *residuals]
+        if not combined:
+            return [part for part in PUNCTUATION_RE.split(text) if part]
+        return [term for _, term in sorted(combined, key=lambda item: item[0])]
+
+    @staticmethod
+    def _clean_residual_phrase(fragment: str) -> str:
+        """Keep meaningful free-form attributes that are absent from the dictionary."""
+        cleaned = str(fragment or "").strip()
+        cleaned = re.sub(r"^(?:在|有|的|地|得|一个|一只|一幅|一张|一位|一些|背景是|背景为)+", "", cleaned)
+        cleaned = re.sub(r"(?:的|地|得|风格|场景|画面)+$", "", cleaned)
+        cleaned = cleaned.strip()
+        if (len(cleaned) < 2 and cleaned not in SINGLE_CHAR_KEEP) or cleaned in STOPWORDS_CN:
+            return ""
+        return cleaned
 
     def _categorize_keywords(self, keywords: List[str]) -> Dict[str, List[str]]:
         categorized: Dict[str, List[str]] = {
@@ -246,6 +288,13 @@ class CommandExtractor:
             prompt_parts.extend(subjects)
         else:
             prompt_parts.extend(raw_keywords[:4])
+
+        uncategorized = [
+            keyword
+            for keyword in raw_keywords
+            if not self.classifier.classify_word(keyword, self.dictionary)
+        ]
+        prompt_parts.extend(uncategorized)
 
         for action in categorized["actions"][:1]:
             prompt_parts.append(f"正在{action}")

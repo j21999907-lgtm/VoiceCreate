@@ -8,7 +8,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from image.dreamlite_fixed import DreamLiteModel, ModelStatus
+from image.generator import DiffusersImageModel, ModelStatus
 
 
 class _PipelineOutput:
@@ -38,7 +38,7 @@ def test_sd_turbo_keeps_low_step_count(tmp_path):
         encoding="utf-8",
     )
 
-    model = DreamLiteModel(
+    model = DiffusersImageModel(
         {
             "model_path": str(model_dir),
             "model_type": "sd-turbo",
@@ -69,7 +69,7 @@ def test_sd_turbo_uses_turbo_defaults_when_generation_values_are_omitted(tmp_pat
         encoding="utf-8",
     )
 
-    model = DreamLiteModel({"model_path": str(model_dir), "model_type": "sd-turbo", "save_generated": False})
+    model = DiffusersImageModel({"model_path": str(model_dir), "model_type": "sd-turbo", "save_generated": False})
 
     assert model.default_size == 512
     assert model.steps == 4
